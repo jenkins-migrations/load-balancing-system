@@ -1,0 +1,114 @@
+name: Maven Deployment Pipeline
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  unit-test:
+    name: Unit Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Set up Java
+        uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+
+      - name: Unit Test
+        run: mvn clean test
+
+  deploy:
+    name: Deploy
+    runs-on: ubuntu-latest
+    needs: unit-test
+    environment: production
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Set up Java
+        uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+
+      - name: Deploy Standalone
+        run: mvn deploy -P standalone
+
+      - name: Configure Maven Anypoint credentials
+        env:
+          ANYPOINT_USERNAME: ${{ secrets.ANYPOINT_USERNAME }}
+          ANYPOINT_PASSWORD: ${{ secrets.ANYPOINT_PASSWORD }}
+        run: |
+          python - <<'PYSETTINGS'
+          import os
+          from pathlib import Path
+          import tempfile
+          import xml.etree.ElementTree as ET
+
+          username = os.environ.get("ANYPOINT_USERNAME", "")
+          anypoint_secret = os.environ.get("ANYPOINT_PASSWORD", "")
+          if not username or not anypoint_secret:
+              raise SystemExit("ANYPOINT_USERNAME and ANYPOINT_PASSWORD secrets are required for deployment.")
+
+          default_namespace = "http://maven.apache.org/SETTINGS/1.0.0"
+          settings_path = Path.home() / ".m2" / "settings.xml"
+          settings_path.parent.mkdir(parents=True, exist_ok=True)
+
+          if settings_path.exists():
+              tree = ET.parse(settings_path)
+              settings = tree.getroot()
+              namespace = settings.tag[1:].split("}", 1)[0] if settings.tag.startswith("{") else ""
+              if namespace:
+                  ET.register_namespace("", namespace)
+          else:
+              namespace = default_namespace
+              ET.register_namespace("", namespace)
+              settings = ET.Element(f"{{{namespace}}}settings")
+              tree = ET.ElementTree(settings)
+
+          def q(name):
+              return f"{{{namespace}}}{name}" if namespace else name
+
+          def child(parent, name):
+              found = parent.find(q(name))
+              if found is None:
+                  found = ET.SubElement(parent, q(name))
+              return found
+
+          profiles = child(settings, "profiles")
+          for profile in list(profiles):
+              profile_id = profile.find(q("id"))
+              if profile_id is not None and profile_id.text == "github-actions-anypoint":
+                  profiles.remove(profile)
+
+          profile = ET.SubElement(profiles, q("profile"))
+          ET.SubElement(profile, q("id")).text = "github-actions-anypoint"
+          properties = ET.SubElement(profile, q("properties"))
+          ET.SubElement(properties, q("anypoint.username")).text = username
+          ET.SubElement(properties, q("anypoint.password")).text = anypoint_secret
+
+          fd, temp_name = tempfile.mkstemp(prefix="settings-", suffix=".xml", dir=settings_path.parent)
+          with os.fdopen(fd, "wb") as settings_file:
+              tree.write(settings_file, encoding="utf-8", xml_declaration=True)
+          os.replace(temp_name, settings_path)
+          PYSETTINGS
+      - name: Deploy to Anypoint
+        run: |
+          mvn deploy -P arm,github-actions-anypoint \
+            -Darm.target.name=local-4.0.0-ee
+
+      - name: Deploy to CloudHub
+        run: |
+          mvn deploy -P cloudhub,github-actions-anypoint \
+            -Dmule.version=4.0.0
