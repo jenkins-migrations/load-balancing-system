@@ -3,6 +3,9 @@ name: Maven Deployment Pipeline
 on:
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   unit-test:
     name: Unit Test
