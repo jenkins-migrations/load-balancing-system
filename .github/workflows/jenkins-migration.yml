@@ -1,0 +1,53 @@
+name: Maven Deployment Pipeline
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-and-deploy:
+    name: Build and deploy
+    runs-on: ubuntu-latest
+    env:
+      ANYPOINT_USERNAME: ${{ secrets.ANYPOINT_USERNAME }}
+      ANYPOINT_PASSWORD: ${{ secrets.ANYPOINT_PASSWORD }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Set up Java
+        uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+
+      - name: Unit Test
+        run: mvn clean test
+
+      - name: Deploy Standalone
+        run: mvn deploy -P standalone
+
+      - name: Validate Anypoint credentials
+        run: |
+          if [ -z "${ANYPOINT_USERNAME}" ] || [ -z "${ANYPOINT_PASSWORD}" ]; then
+            echo "ANYPOINT_USERNAME and ANYPOINT_PASSWORD secrets are required for Anypoint deployments."
+            exit 1
+          fi
+
+      - name: Deploy to Anypoint
+        run: |
+          mvn deploy -P arm \
+            -Darm.target.name=local-4.0.0-ee \
+            -Danypoint.username="${ANYPOINT_USERNAME}" \
+            -Danypoint.password="${ANYPOINT_PASSWORD}"
+
+      - name: Deploy to CloudHub
+        run: |
+          mvn deploy -P cloudhub \
+            -Dmule.version=4.0.0 \
+            -Danypoint.username="${ANYPOINT_USERNAME}" \
+            -Danypoint.password="${ANYPOINT_PASSWORD}"
