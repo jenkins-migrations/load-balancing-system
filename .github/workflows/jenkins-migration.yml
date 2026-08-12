@@ -39,6 +39,9 @@ jobs:
           java-version: '17'
           cache: maven
 
+      - name: Deploy Standalone
+        run: mvn deploy -P standalone
+
       - name: Configure Maven Anypoint credentials
         env:
           ANYPOINT_USERNAME: ${{ secrets.ANYPOINT_USERNAME }}
@@ -47,6 +50,7 @@ jobs:
           python - <<'PYSETTINGS'
           import os
           from pathlib import Path
+          import tempfile
           import xml.etree.ElementTree as ET
 
           username = os.environ.get("ANYPOINT_USERNAME", "")
@@ -91,14 +95,11 @@ jobs:
           ET.SubElement(properties, q("anypoint.username")).text = username
           ET.SubElement(properties, q("anypoint.password")).text = anypoint_secret
 
-
-          tree.write(settings_path, encoding="utf-8", xml_declaration=True)
-          settings_path.chmod(0o600)
+          fd, temp_name = tempfile.mkstemp(prefix="settings-", suffix=".xml", dir=settings_path.parent)
+          with os.fdopen(fd, "wb") as settings_file:
+              tree.write(settings_file, encoding="utf-8", xml_declaration=True)
+          os.replace(temp_name, settings_path)
           PYSETTINGS
-
-      - name: Deploy Standalone
-        run: mvn deploy -P standalone
-
       - name: Deploy to Anypoint
         run: |
           mvn deploy -P arm,github-actions-anypoint \
