@@ -91,11 +91,6 @@ jobs:
           ET.SubElement(properties, q("anypoint.username")).text = username
           ET.SubElement(properties, q("anypoint.password")).text = anypoint_secret
 
-          active_profiles = child(settings, "activeProfiles")
-          for active_profile in list(active_profiles):
-              if active_profile.text == "github-actions-anypoint":
-                  active_profiles.remove(active_profile)
-          ET.SubElement(active_profiles, q("activeProfile")).text = "github-actions-anypoint"
 
           tree.write(settings_path, encoding="utf-8", xml_declaration=True)
           settings_path.chmod(0o600)
