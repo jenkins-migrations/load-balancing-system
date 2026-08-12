@@ -98,10 +98,11 @@ jobs:
           ET.SubElement(active_profiles, q("activeProfile")).text = "github-actions-anypoint"
 
           tree.write(settings_path, encoding="utf-8", xml_declaration=True)
+          settings_path.chmod(0o600)
           PYSETTINGS
 
       - name: Deploy Standalone
-        run: mvn deploy -P standalone,github-actions-anypoint
+        run: mvn deploy -P standalone
 
       - name: Deploy to Anypoint
         run: |

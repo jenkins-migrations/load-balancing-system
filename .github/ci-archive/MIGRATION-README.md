@@ -21,7 +21,7 @@ Created `.github/workflows/jenkins-migration.yml` with a `unit-test` job followe
 | Jenkins stage | GitHub Actions step |
 | --- | --- |
 | `Unit Test` | `mvn clean test` |
-| `Deploy Standalone` | `mvn deploy -P standalone,github-actions-anypoint` |
+| `Deploy Standalone` | `mvn deploy -P standalone` |
 | `Deploy to AnyPoint` | `mvn deploy -P arm,github-actions-anypoint ...` |
 | `Deploy to CloudHub` | `mvn deploy -P cloudhub,github-actions-anypoint ...` |
 
