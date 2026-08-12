@@ -10,9 +10,6 @@ jobs:
   build-and-deploy:
     name: Build and deploy
     runs-on: ubuntu-latest
-    env:
-      ANYPOINT_USERNAME: ${{ secrets.ANYPOINT_USERNAME }}
-      ANYPOINT_PASSWORD: ${{ secrets.ANYPOINT_PASSWORD }}
 
     steps:
       - name: Check out repository
@@ -28,17 +25,23 @@ jobs:
       - name: Unit Test
         run: mvn clean test
 
-      - name: Deploy Standalone
-        run: mvn deploy -P standalone
-
       - name: Validate Anypoint credentials
+        env:
+          ANYPOINT_USERNAME: ${{ secrets.ANYPOINT_USERNAME }}
+          ANYPOINT_PASSWORD: ${{ secrets.ANYPOINT_PASSWORD }}
         run: |
           if [ -z "${ANYPOINT_USERNAME}" ] || [ -z "${ANYPOINT_PASSWORD}" ]; then
             echo "ANYPOINT_USERNAME and ANYPOINT_PASSWORD secrets are required for Anypoint deployments."
             exit 1
           fi
 
+      - name: Deploy Standalone
+        run: mvn deploy -P standalone
+
       - name: Deploy to Anypoint
+        env:
+          ANYPOINT_USERNAME: ${{ secrets.ANYPOINT_USERNAME }}
+          ANYPOINT_PASSWORD: ${{ secrets.ANYPOINT_PASSWORD }}
         run: |
           mvn deploy -P arm \
             -Darm.target.name=local-4.0.0-ee \
@@ -46,6 +49,9 @@ jobs:
             -Danypoint.password="${ANYPOINT_PASSWORD}"
 
       - name: Deploy to CloudHub
+        env:
+          ANYPOINT_USERNAME: ${{ secrets.ANYPOINT_USERNAME }}
+          ANYPOINT_PASSWORD: ${{ secrets.ANYPOINT_PASSWORD }}
         run: |
           mvn deploy -P cloudhub \
             -Dmule.version=4.0.0 \
