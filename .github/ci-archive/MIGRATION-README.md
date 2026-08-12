@@ -40,10 +40,10 @@ Configure these repository or environment secrets before running deployment stag
 
 | Jenkins credential | GitHub Actions secret | Purpose |
 | --- | --- | --- |
-| `anypoint.credentials` username | `ANYPOINT_USERNAME` | Anypoint username passed as `-Danypoint.username`. |
-| `anypoint.credentials` password | `ANYPOINT_PASSWORD` | Anypoint password supplied to Maven through `MAVEN_OPTS` as the Anypoint password system property. |
+| `anypoint.credentials` username | `ANYPOINT_USERNAME` | Anypoint username written to the runner-local Maven `settings.xml` profile as the Anypoint username property before Anypoint deployments. |
+| `anypoint.credentials` password | `ANYPOINT_PASSWORD` | Anypoint password written to the runner-local Maven `settings.xml` profile as the Anypoint password property before Anypoint deployments. |
 
-The original Jenkinsfile contained masked password arguments (`-Danypoint.******`). The migration maps those redacted values to the expected Anypoint password system property via `MAVEN_OPTS` so the secret is not included directly in the Maven command line.
+The original Jenkinsfile contained masked password arguments (`-Danypoint.******`). The migration maps those redacted values to a temporary runner-local Maven `settings.xml` profile so the secret is not included directly in Maven command lines.
 
 ## Validation
 

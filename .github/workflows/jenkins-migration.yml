@@ -39,33 +39,47 @@ jobs:
           java-version: '17'
           cache: maven
 
-      - name: Validate Anypoint credentials
+      - name: Deploy Standalone
+        run: mvn deploy -P standalone
+
+      - name: Configure Maven Anypoint credentials
         env:
           ANYPOINT_USERNAME: ${{ secrets.ANYPOINT_USERNAME }}
           ANYPOINT_PASSWORD: ${{ secrets.ANYPOINT_PASSWORD }}
         run: |
-          if [ -z "${ANYPOINT_USERNAME}" ] || [ -z "${ANYPOINT_PASSWORD}" ]; then
-            echo "ANYPOINT_USERNAME and ANYPOINT_PASSWORD secrets are required for Anypoint deployments."
-            exit 1
-          fi
+          python - <<'PYSETTINGS'
+          import os
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
 
-      - name: Deploy Standalone
-        run: mvn deploy -P standalone
+          username = os.environ.get("ANYPOINT_USERNAME", "")
+          secret_value = os.environ.get("ANYPOINT_PASSWORD", "")
+          if not username or not secret_value:
+              raise SystemExit("ANYPOINT_USERNAME and ANYPOINT_PASSWORD secrets are required for Anypoint deployments.")
+
+          namespace = "http://maven.apache.org/SETTINGS/1.0.0"
+          ET.register_namespace("", namespace)
+          settings = ET.Element(f"{{{namespace}}}settings")
+          profiles = ET.SubElement(settings, f"{{{namespace}}}profiles")
+          profile = ET.SubElement(profiles, f"{{{namespace}}}profile")
+          ET.SubElement(profile, f"{{{namespace}}}id").text = "github-actions-anypoint"
+          properties = ET.SubElement(profile, f"{{{namespace}}}properties")
+          ET.SubElement(properties, f"{{{namespace}}}anypoint.username").text = username
+          ET.SubElement(properties, f"{{{namespace}}}anypoint.password").text = secret_value
+          active_profiles = ET.SubElement(settings, f"{{{namespace}}}activeProfiles")
+          ET.SubElement(active_profiles, f"{{{namespace}}}activeProfile").text = "github-actions-anypoint"
+
+          settings_path = Path.home() / ".m2" / "settings.xml"
+          settings_path.parent.mkdir(parents=True, exist_ok=True)
+          ET.ElementTree(settings).write(settings_path, encoding="utf-8", xml_declaration=True)
+          PYSETTINGS
 
       - name: Deploy to Anypoint
-        env:
-          ANYPOINT_USERNAME: ${{ secrets.ANYPOINT_USERNAME }}
-          MAVEN_OPTS: -Danypoint.password=${{ secrets.ANYPOINT_PASSWORD }}
         run: |
           mvn deploy -P arm \
-            -Darm.target.name=local-4.0.0-ee \
-            -Danypoint.username="${ANYPOINT_USERNAME}"
+            -Darm.target.name=local-4.0.0-ee
 
       - name: Deploy to CloudHub
-        env:
-          ANYPOINT_USERNAME: ${{ secrets.ANYPOINT_USERNAME }}
-          MAVEN_OPTS: -Danypoint.password=${{ secrets.ANYPOINT_PASSWORD }}
         run: |
           mvn deploy -P cloudhub \
-            -Dmule.version=4.0.0 \
-            -Danypoint.username="${ANYPOINT_USERNAME}"
+            -Dmule.version=4.0.0
