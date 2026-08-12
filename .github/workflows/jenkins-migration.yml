@@ -2,9 +2,6 @@ name: Maven Deployment Pipeline
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - main
 
 jobs:
   unit-test:
@@ -58,19 +55,17 @@ jobs:
       - name: Deploy to Anypoint
         env:
           ANYPOINT_USERNAME: ${{ secrets.ANYPOINT_USERNAME }}
-          ANYPOINT_PASSWORD: ${{ secrets.ANYPOINT_PASSWORD }}
+          MAVEN_OPTS: -Danypoint.password=${{ secrets.ANYPOINT_PASSWORD }}
         run: |
           mvn deploy -P arm \
             -Darm.target.name=local-4.0.0-ee \
-            -Danypoint.username="${ANYPOINT_USERNAME}" \
-            -Danypoint.password="${ANYPOINT_PASSWORD}"
+            -Danypoint.username="${ANYPOINT_USERNAME}"
 
       - name: Deploy to CloudHub
         env:
           ANYPOINT_USERNAME: ${{ secrets.ANYPOINT_USERNAME }}
-          ANYPOINT_PASSWORD: ${{ secrets.ANYPOINT_PASSWORD }}
+          MAVEN_OPTS: -Danypoint.password=${{ secrets.ANYPOINT_PASSWORD }}
         run: |
           mvn deploy -P cloudhub \
             -Dmule.version=4.0.0 \
-            -Danypoint.username="${ANYPOINT_USERNAME}" \
-            -Danypoint.password="${ANYPOINT_PASSWORD}"
+            -Danypoint.username="${ANYPOINT_USERNAME}"

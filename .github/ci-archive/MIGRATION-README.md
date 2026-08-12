@@ -25,7 +25,7 @@ Created `.github/workflows/jenkins-migration.yml` with a `unit-test` job followe
 | `Deploy to AnyPoint` | `mvn deploy -P arm ...` |
 | `Deploy to CloudHub` | `mvn deploy -P cloudhub ...` |
 
-The workflow runs on pushes to `main` and can also be run manually with `workflow_dispatch`. Configure protection rules on the `production` environment if deployment approval is required.
+The workflow runs manually with `workflow_dispatch`, matching the source Jenkinsfile which did not define explicit triggers. Configure protection rules on the `production` environment if deployment approval is required.
 
 ## Action Pinning
 
@@ -41,9 +41,9 @@ Configure these repository or environment secrets before running deployment stag
 | Jenkins credential | GitHub Actions secret | Purpose |
 | --- | --- | --- |
 | `anypoint.credentials` username | `ANYPOINT_USERNAME` | Anypoint username passed as `-Danypoint.username`. |
-| `anypoint.credentials` password | `ANYPOINT_PASSWORD` | Anypoint password passed as `-Danypoint.password`. |
+| `anypoint.credentials` password | `ANYPOINT_PASSWORD` | Anypoint password supplied to Maven through `MAVEN_OPTS` as the Anypoint password system property. |
 
-The original Jenkinsfile contained masked password arguments (`-Danypoint.******`). The migration maps those redacted values to `-Danypoint.password`, which is the expected Maven property for the Anypoint deployment commands.
+The original Jenkinsfile contained masked password arguments (`-Danypoint.******`). The migration maps those redacted values to the expected Anypoint password system property via `MAVEN_OPTS` so the secret is not included directly in the Maven command line.
 
 ## Validation
 
