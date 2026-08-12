@@ -50,8 +50,8 @@ jobs:
           import xml.etree.ElementTree as ET
 
           username = os.environ.get("ANYPOINT_USERNAME", "")
-          secret_value = os.environ.get("ANYPOINT_PASSWORD", "")
-          if not username or not secret_value:
+          anypoint_secret = os.environ.get("ANYPOINT_PASSWORD", "")
+          if not username or not anypoint_secret:
               raise SystemExit("ANYPOINT_USERNAME and ANYPOINT_PASSWORD secrets are required for deployment.")
 
           default_namespace = "http://maven.apache.org/SETTINGS/1.0.0"
@@ -62,6 +62,8 @@ jobs:
               tree = ET.parse(settings_path)
               settings = tree.getroot()
               namespace = settings.tag[1:].split("}", 1)[0] if settings.tag.startswith("{") else ""
+              if namespace:
+                  ET.register_namespace("", namespace)
           else:
               namespace = default_namespace
               ET.register_namespace("", namespace)
@@ -87,7 +89,7 @@ jobs:
           ET.SubElement(profile, q("id")).text = "github-actions-anypoint"
           properties = ET.SubElement(profile, q("properties"))
           ET.SubElement(properties, q("anypoint.username")).text = username
-          ET.SubElement(properties, q("anypoint.password")).text = secret_value
+          ET.SubElement(properties, q("anypoint.password")).text = anypoint_secret
 
           active_profiles = child(settings, "activeProfiles")
           for active_profile in list(active_profiles):
