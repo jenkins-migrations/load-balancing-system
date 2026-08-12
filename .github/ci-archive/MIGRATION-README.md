@@ -16,7 +16,7 @@ Migrated the declarative Jenkins pipeline from `Jenkinsfile` to `.github/workflo
 
 ## GitHub Actions Workflow
 
-Created `.github/workflows/jenkins-migration.yml` with one sequential `build-and-deploy` job on `ubuntu-latest`.
+Created `.github/workflows/jenkins-migration.yml` with a `unit-test` job followed by a `deploy` job on `ubuntu-latest`. The `deploy` job uses the `production` environment so repository maintainers can configure environment protection rules before deployment commands run.
 
 | Jenkins stage | GitHub Actions step |
 | --- | --- |
@@ -25,7 +25,7 @@ Created `.github/workflows/jenkins-migration.yml` with one sequential `build-and
 | `Deploy to AnyPoint` | `mvn deploy -P arm ...` |
 | `Deploy to CloudHub` | `mvn deploy -P cloudhub ...` |
 
-The workflow runs on pushes to `main` and can also be run manually with `workflow_dispatch`.
+The workflow runs on pushes to `main` and can also be run manually with `workflow_dispatch`. Configure protection rules on the `production` environment if deployment approval is required.
 
 ## Action Pinning
 
