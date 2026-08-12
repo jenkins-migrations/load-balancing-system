@@ -39,9 +39,6 @@ jobs:
           java-version: '17'
           cache: maven
 
-      - name: Deploy Standalone
-        run: mvn deploy -P standalone
-
       - name: Configure Maven Anypoint credentials
         env:
           ANYPOINT_USERNAME: ${{ secrets.ANYPOINT_USERNAME }}
@@ -55,24 +52,54 @@ jobs:
           username = os.environ.get("ANYPOINT_USERNAME", "")
           secret_value = os.environ.get("ANYPOINT_PASSWORD", "")
           if not username or not secret_value:
-              raise SystemExit("ANYPOINT_USERNAME and ANYPOINT_PASSWORD secrets are required for Anypoint deployments.")
+              raise SystemExit("ANYPOINT_USERNAME and ANYPOINT_PASSWORD secrets are required for deployment.")
 
-          namespace = "http://maven.apache.org/SETTINGS/1.0.0"
-          ET.register_namespace("", namespace)
-          settings = ET.Element(f"{{{namespace}}}settings")
-          profiles = ET.SubElement(settings, f"{{{namespace}}}profiles")
-          profile = ET.SubElement(profiles, f"{{{namespace}}}profile")
-          ET.SubElement(profile, f"{{{namespace}}}id").text = "github-actions-anypoint"
-          properties = ET.SubElement(profile, f"{{{namespace}}}properties")
-          ET.SubElement(properties, f"{{{namespace}}}anypoint.username").text = username
-          ET.SubElement(properties, f"{{{namespace}}}anypoint.password").text = secret_value
-          active_profiles = ET.SubElement(settings, f"{{{namespace}}}activeProfiles")
-          ET.SubElement(active_profiles, f"{{{namespace}}}activeProfile").text = "github-actions-anypoint"
-
+          default_namespace = "http://maven.apache.org/SETTINGS/1.0.0"
           settings_path = Path.home() / ".m2" / "settings.xml"
           settings_path.parent.mkdir(parents=True, exist_ok=True)
-          ET.ElementTree(settings).write(settings_path, encoding="utf-8", xml_declaration=True)
+
+          if settings_path.exists():
+              tree = ET.parse(settings_path)
+              settings = tree.getroot()
+              namespace = settings.tag[1:].split("}", 1)[0] if settings.tag.startswith("{") else ""
+          else:
+              namespace = default_namespace
+              ET.register_namespace("", namespace)
+              settings = ET.Element(f"{{{namespace}}}settings")
+              tree = ET.ElementTree(settings)
+
+          def q(name):
+              return f"{{{namespace}}}{name}" if namespace else name
+
+          def child(parent, name):
+              found = parent.find(q(name))
+              if found is None:
+                  found = ET.SubElement(parent, q(name))
+              return found
+
+          profiles = child(settings, "profiles")
+          for profile in list(profiles):
+              profile_id = profile.find(q("id"))
+              if profile_id is not None and profile_id.text == "github-actions-anypoint":
+                  profiles.remove(profile)
+
+          profile = ET.SubElement(profiles, q("profile"))
+          ET.SubElement(profile, q("id")).text = "github-actions-anypoint"
+          properties = ET.SubElement(profile, q("properties"))
+          ET.SubElement(properties, q("anypoint.username")).text = username
+          ET.SubElement(properties, q("anypoint.password")).text = secret_value
+
+          active_profiles = child(settings, "activeProfiles")
+          for active_profile in list(active_profiles):
+              if active_profile.text == "github-actions-anypoint":
+                  active_profiles.remove(active_profile)
+          ET.SubElement(active_profiles, q("activeProfile")).text = "github-actions-anypoint"
+
+          tree.write(settings_path, encoding="utf-8", xml_declaration=True)
           PYSETTINGS
+
+      - name: Deploy Standalone
+        run: mvn deploy -P standalone
 
       - name: Deploy to Anypoint
         run: |
