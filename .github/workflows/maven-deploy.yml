@@ -1,0 +1,65 @@
+name: Maven test and deploy
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: maven-deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  test-and-deploy:
+    name: Test and deploy sequentially
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      ANYPOINT_PASSWORD_PROPERTY: anypoint.password
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Java
+        uses: actions/setup-java@dd06d9cba3e5552c54d9f8ea23572deb30010f7c # v6.0.0
+        with:
+          distribution: temurin
+          java-version: "8"
+
+      - name: Unit test
+        run: mvn clean test
+
+      - name: Deploy standalone
+        run: mvn deploy -P standalone
+
+      - name: Deploy to Anypoint ARM
+        env:
+          ANYPOINT_USERNAME: ${{ secrets.ANYPOINT_USERNAME }}
+          ANYPOINT_PASSWORD: ${{ secrets.ANYPOINT_PASSWORD }}
+        run: |
+          mvn deploy -P arm \
+            -Darm.target.name=local-4.0.0-ee \
+            -Danypoint.username="${ANYPOINT_USERNAME}" \
+            -D"${ANYPOINT_PASSWORD_PROPERTY}=${ANYPOINT_PASSWORD}"
+
+      - name: Deploy to CloudHub
+        env:
+          ANYPOINT_USERNAME: ${{ secrets.ANYPOINT_USERNAME }}
+          ANYPOINT_PASSWORD: ${{ secrets.ANYPOINT_PASSWORD }}
+        run: |
+          mvn deploy -P cloudhub \
+            -Dmule.version=4.0.0 \
+            -Danypoint.username="${ANYPOINT_USERNAME}" \
+            -D"${ANYPOINT_PASSWORD_PROPERTY}=${ANYPOINT_PASSWORD}"
+
+      - name: Report success
+        if: ${{ success() }}
+        run: echo "Deployment completed successfully!"
+
+      - name: Report failure
+        if: ${{ failure() }}
+        run: echo "Deployment failed! Check logs for errors."
